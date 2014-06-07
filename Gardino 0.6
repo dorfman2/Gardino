@@ -1,0 +1,283 @@
+/* 
+ Gardino 0.6
+ 6/6/2014
+ By Jeffrey Dorfman
+ 
+   The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil
+ once a day, and relying on a moisture sensor to test if the soil is already wet (i.e. from rainfall). It will also add an extra
+ afternoon watering (heat of the day) if the soil moisture falls below acceptable levels. The ability to water now, or skip 
+ next watering, is available via push button on the side of the arduino enclosure.
+   Eventually, I would like this project to involve several potted plants. The ideal being is that they require little maintenance,
+ other than refilling the reservoir. I would also like to add the option to mist leaves, possibly in cases of extreme heat.
+ 
+ 
+ HARDWARE:
+ 
+ * Arduino Uno R3
+ * Adafruit Motor Shield v1.2
+ * Adafruit DS1307 Breakout
+ * Pushbutton w/100 resistor
+ * 12v power source
+ * Elecrow Moisture Sensor (5v)
+ * 12v Micro water pump (~1 liter/18seconds)
+
+
+ LIBRARIES UTILIZED:
+ 
+ * Adafruit Motor shield library - copyright Adafruit Industries LLC, 2009
+ 
+ 
+ MOISTURE SENSOR:
+ 
+ Value range:
+ 0 ~300 : dry soil
+ 300~700 : humid soil
+ 700~950 : in water
+ 
+ 
+ */
+
+// Libraries
+#include <AFMotor.h>
+#include <Wire.h>
+#include "RTClib.h"
+
+
+
+// DS1307 RTC
+RTC_DS1307 rtc;
+
+// Water Pump
+#define runEvery(t) for (static typeof(t) _lasttime;(typeof(t))((typeof(t))millis() - _lasttime) > (t);_lasttime += (t))
+AF_DCMotor motor(1, MOTOR12_1KHZ);
+
+// Button
+const int buttonPin = 10;
+int buttonState;             
+int lastButtonState = LOW;
+int skipNext = LOW;
+int waterOverride = 0;
+
+// Led
+int led = 13;
+int ledState = LOW;
+
+// Watering Calibration
+int halfLiter (9600);
+int liter (halfLiter * 2);
+
+// Moisture Sensor
+int sensorPin = 15;    // select the input pin for the potentiometer
+int sensorValue = 0; 
+
+// Alarm
+int alarmMorningHour = 15;    // set alarm hour 
+int alarmMorningMinute = 46;  // set alarm minute
+
+
+
+void setup() {
+
+  // set up Serial library at 9600 bps if detected
+  if (Serial) {
+    Serial.begin(9600);
+    Serial.println("Gardino Test!");
+  }
+
+  //Defines motor speed
+  motor.setSpeed(255);
+  motor.run(RELEASE);
+
+  //sets up indicator LED
+  pinMode (led, OUTPUT);
+  digitalWrite (led, LOW);
+
+  //button
+  pinMode(buttonPin, INPUT);
+
+  //Power for DS1307 and Initializes
+  pinMode (17, OUTPUT);    
+  digitalWrite (17, HIGH);
+  pinMode (16, OUTPUT);
+  digitalWrite (16, LOW);
+  Wire.begin();
+  rtc.begin();
+  // rtc.adjust(DateTime(__DATE__, __TIME__));
+  // ******Use Above code to set the rtc if needed*****
+
+  //debug check for RTC
+  if (! rtc.isrunning()) { 
+    Serial.println("RTC is NOT running!");
+  }
+}
+
+void loop() {
+
+  DateTime now = rtc.now();
+
+  if (now.hour() == alarmMorningHour && now.minute() == alarmMorningMinute && now.second() == 0){
+
+    if (skipNext == HIGH) {
+      Serial.println("Watering Has Been Skipped");
+      ledSlow();
+      skipNext = !skipNext;
+    }
+
+    else {
+      waterNow();
+    }
+  }
+
+  runEvery(500) {
+
+    int buttonState = digitalRead(buttonPin);
+
+    if (buttonState == HIGH) {
+
+      if (skipNext == HIGH) {
+        if (waterOverride == 3) {
+          waterNow();
+          skipNext = !skipNext;
+        }
+        Serial.println("Next Watering Already Stored");
+        ledFast();
+        waterOverride++;
+      }
+
+      else {
+        skipNext = !skipNext;
+        Serial.println("Skipping next Watering STORED");
+        ledSlow();
+      }
+    }
+  }
+
+  runEvery(1000) {
+    sensorValue = analogRead(sensorPin);
+    if (sensorValue == 0) {
+      Serial.println ("Moisture Sensor NOT IN SOIL");
+    }
+    else() {
+      if (sensorValue >= 700) {
+        skipNext = !skipNext;
+      }
+      if (sensorValue <= 250) {
+        //NEED TO ADD EXTRA WATERING SCRIPT?
+      }
+    }
+    if (Serial) {
+      displayTime();
+      Serial.print("sensor = " );                       
+      Serial.println(sensorValue); 
+    }
+  }
+}
+
+
+
+void displayTime() {
+
+  DateTime now = rtc.now();  
+
+  if (now.hour() >= 13) {
+    Serial.print(now.hour() - 12, DEC);
+  }
+  else {
+    Serial.print(now.hour(), DEC);
+  }
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  if (now.hour() >= 13) {
+    Serial.print(" PM");
+  }
+  else {
+    Serial.print(" AM");
+  }
+  Serial.println();
+}
+
+
+
+void ledFast() {
+  digitalWrite (led, HIGH);
+  delay(100);
+  digitalWrite (led, LOW);
+  delay(100);
+  digitalWrite (led, HIGH);
+  delay(100);
+  digitalWrite (led, LOW);
+  delay(100);
+  digitalWrite (led, HIGH);
+  delay(100);
+  digitalWrite (led, LOW);
+  delay(100);
+  digitalWrite (led, HIGH);
+  delay(100);
+  digitalWrite (led, LOW);
+}
+
+
+
+void ledSlow() { 
+  digitalWrite (led, HIGH);
+  delay(250);
+  digitalWrite (led, LOW);
+  delay(250);
+  digitalWrite (led, HIGH);
+  delay(250);
+  digitalWrite (led, LOW);
+  delay(250);
+  digitalWrite (led, HIGH);
+  delay(250);
+  digitalWrite (led, LOW);
+}
+
+
+
+void waterNow() {
+  motor.run(FORWARD);
+  digitalWrite(led, HIGH);
+  Serial.println("Pump ON");
+  Serial.println();
+  delay(halfLiter);
+  motor.run(RELEASE);
+  digitalWrite(led, LOW);
+  Serial.println("Pump OFF");
+  waterOverride = 0;
+}
+
+
+void debug() {
+  runEvery(5000){
+    DateTime now = rtc.now();
+    int sec = now.second();
+    Serial.print("alarmMorningHour = "); 
+    Serial.println(alarmMorningHour);
+    Serial.print("alarmMorningMinute = "); 
+    Serial.println(alarmMorningMinute); 
+    Serial.print("second = "); 
+    Serial.println(sec); 
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
