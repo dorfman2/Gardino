@@ -4,8 +4,10 @@ Gardino
 Arduino-based automatic plant watering system
 
 
- Gardino 0.6
- 6/6/2014
+ Gardino 0.8
+ 
+ 6/21/2014
+ 
  By Jeffrey Dorfman
  
    The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil
