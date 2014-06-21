@@ -1,0 +1,99 @@
+
+
+// ----CONSTANTS (won't change)
+const int led_A_Pin = 13;
+const int buttonPin = 10; // the pin number for the button
+const int onBoardLedInterval = 500; // number of millisecs between blinks
+const int led_A_Interval = 500;
+const int blinkDuration = 500; // number of millisecs that Led's are on - all three leds use this
+const int buttonInterval = 300; // number of millisecs between button readings
+
+
+//------- VARIABLES (will change)
+byte led_A_State = LOW;           //   LOW = off
+unsigned long currentMillis = 0;    // stores the value of millis() in each iteration of loop()
+unsigned long previousLed_A_Millis = 0;
+unsigned long previousButtonMillis = 0; // time when button press last checked
+
+
+//------What I Have Added
+int blinkCount = 8;
+const int blinkLimit = 8;
+
+//========
+
+void setup() {
+
+  Serial.begin(9600);
+  Serial.println("BWoD.ino");
+
+  pinMode(led_A_Pin, OUTPUT);
+  pinMode(buttonPin, INPUT);
+
+}
+
+//=======
+
+void loop() {
+
+  currentMillis = millis();   
+
+  readButton();               
+
+  ledFast();
+
+}
+
+//=============================
+
+void ledFast() {
+  if (blinkCount <= blinkLimit){
+    updateLed_A_State();
+    switchLeds();
+  }
+}
+
+//=============================
+
+void updateLed_A_State() {
+
+  if (led_A_State == LOW) {
+    if (currentMillis - previousLed_A_Millis >= led_A_Interval) {
+      led_A_State = HIGH;
+      previousLed_A_Millis += led_A_Interval;
+    }
+  }
+  else {
+    if (currentMillis - previousLed_A_Millis >= blinkDuration) {
+      led_A_State = LOW;
+      previousLed_A_Millis += blinkDuration;
+      blinkCount++;
+
+      Serial.println(blinkCount);
+    } 
+  }    
+}
+
+
+//==================================
+
+void switchLeds() {
+    digitalWrite(led_A_Pin, led_A_State);
+}
+
+//=================================
+
+void readButton() {
+
+  if (millis() - previousButtonMillis >= buttonInterval) {
+    if (digitalRead(buttonPin) == HIGH) {
+      Serial.println("button Pushed");
+      blinkCount = 0;
+    }
+  }
+}
+
+
+
+//========END================
+
