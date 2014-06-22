@@ -25,6 +25,7 @@
  LIBRARIES UTILIZED:
  
  * Adafruit Motor shield library - copyright Adafruit Industries LLC, 200910
+ * @WizenenEE's runEvery() Macro - http://forum.arduino.cc/index.php?topic=124974.0
  
  
  MOISTURE SENSOR:
@@ -43,8 +44,8 @@
 #include "RTClib.h"
 
 // runEvery macro  http://forum.arduino.cc/index.php?topic=124974.0
-#define runEvery(t) for (static typeof(t) _lasttime;\
-(typeof(t))((typeof(t))millis() - _lasttime) > (t);\
+#define runEvery(t) for (static uint16_t _lasttime;\
+                         (uint16_t)((uint16_t)millis() - _lasttime) >= (t);\
                          _lasttime += (t))
 
 
@@ -58,7 +59,7 @@ const int blinkDurationFast = 500; // number of millisecs for Led ON
 const int buttonInterval = 300; // number of millisecs between button readings
 const int sensorPin = 15;    //Moisture Sensor
 const int blinkLimit = 8;    //Total number of Led Blinks
-const int liter (20 * 1000);    // Water Calibration - adjust this time value until water amount is correct - in Millis
+const int liter (30 * 1000);    // Water Calibration - adjust this time value until water amount is correct - in Millis
 
 
 
@@ -90,8 +91,8 @@ unsigned long pumpTimeMillis;
 // ------------- ALARMS ------------- 
 const int alarmMorningHour = 6;    // set alarm hour (All in 24 hour Time, NOT 12 hour)
 const int alarmMorningMinute = 30;  // set alarm minute
-const int alarmEveHour = 18;    // set alarm hour 
-const int alarmEveMinute = 30;  // set alarm minute
+const int alarmEveHour = 21;    // set alarm hour 
+const int alarmEveMinute = 33;  // set alarm minute
 
 
 //=================================================================
@@ -129,6 +130,13 @@ void setup() {
   if (! rtc.isrunning()) { 
     Serial.println("RTC is NOT running!");
   }
+
+  if (Serial) {
+    Serial.println();
+    Serial.println("Debug Mode ACTIVE");
+    Serial.println();
+  }
+
 }
 
 //============================================
@@ -171,6 +179,18 @@ void checkWaterAlarm () {
     DateTime now = rtc.now();
 
     if (now.hour() == alarmMorningHour && now.minute() == alarmMorningMinute && now.second() == 0){
+
+      if (skipNext == HIGH) {
+        Serial.println("Watering Has Been Skipped");
+        ledSlow();
+        skipNext = !skipNext;
+      }
+
+      else {
+        waterNow = HIGH;
+      }
+    }
+    if (now.hour() == alarmEveHour && now.minute() == alarmEveMinute && now.second() == 0){
 
       if (skipNext == HIGH) {
         Serial.println("Watering Has Been Skipped");
@@ -334,6 +354,7 @@ void eStop() {
         digitalWrite(led_A_Pin, LOW);
         state = OFF;
         Serial.println("EMERGENCY STOP");
+        delay(500);
       }
     }
   }
@@ -415,4 +436,4 @@ void debug() {
   }
 }
 
-//===============END=================
+//===============END================
