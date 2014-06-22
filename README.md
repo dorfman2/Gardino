@@ -2,12 +2,8 @@
  6/22/2014
  By Jeffrey Dorfman
  
- The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil
- once a day, and relying on a moisture sensor to test if the soil is already wet (i.e. from rainfall). It will also add an extra
- afternoon watering (heat of the day) if the soil moisture falls below acceptable levels. The ability to water now, or skip 
- next watering, is available via push button on the side of the arduino enclosure.
- Eventually, I would like this project to involve several potted plants. The ideal being is that they require little maintenance,
- other than refilling the reservoir. I would also like to add the option to mist leaves, possibly in cases of extreme heat.
+ The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil once a day, and relying on a moisture sensor to test if the soil is already wet (i.e. from rainfall). It will also add an extra afternoon watering (heat of the day) if the soil moisture falls below acceptable levels. The ability to water now, or skip next watering, is available via push button on the side of the arduino enclosure.
+ Eventually, I would like this project to involve several potted plants. The ideal being is that they require little maintenance, other than refilling the reservoir. I would also like to add the option to mist leaves, possibly in cases of extreme heat.
  
  
  HARDWARE:
