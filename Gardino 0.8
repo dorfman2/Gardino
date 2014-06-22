@@ -43,8 +43,8 @@
 #include "RTClib.h"
 
 // runEvery macro  http://forum.arduino.cc/index.php?topic=124974.0
-#define runEvery(t) for (static uint_16 _lasttime;\
-                         (uint16_t)((uint16_t)millis() - _lasttime) >= (t);\
+#define runEvery(t) for (static typeof(t) _lasttime;\
+(typeof(t))((typeof(t))millis() - _lasttime) > (t);\
                          _lasttime += (t))
 
 
@@ -56,10 +56,13 @@ const int buttonPin = 10; // the pin number for the button
 const int led_A_Interval = 500;
 const int blinkDurationFast = 500; // number of millisecs for Led ON
 const int buttonInterval = 300; // number of millisecs between button readings
-const int liter = 20000;    // Water Calibration - adjust this time value until water amount is correct - in Millis
 const int sensorPin = 15;    //Moisture Sensor
 const int blinkLimit = 8;    //Total number of Led Blinks
+const int liter (20 * 1000);    // Water Calibration - adjust this time value until water amount is correct - in Millis
 
+
+
+// ----- Define State Machine -----
 typedef enum {  
   ON,
   OFF}
@@ -85,10 +88,10 @@ unsigned long pumpTimeMillis;
 
 
 // ------------- ALARMS ------------- 
-const int alarmMorningHour = 2;    // set alarm hour 
-const int alarmMorningMinute = 52;  // set alarm minute
-const int alarmEveHour = 2;    // set alarm hour 
-const int alarmEveMinute = 50;  // set alarm minute
+const int alarmMorningHour = 6;    // set alarm hour (All in 24 hour Time, NOT 12 hour)
+const int alarmMorningMinute = 30;  // set alarm minute
+const int alarmEveHour = 18;    // set alarm hour 
+const int alarmEveMinute = 30;  // set alarm minute
 
 
 //=================================================================
@@ -119,7 +122,7 @@ void setup() {
   digitalWrite (16, LOW);
   Wire.begin();
   rtc.begin();
-  // rtc.adjust(DateTime(__DATE__, __TIME__));
+  rtc.adjust(DateTime(__DATE__, __TIME__));
   // ******Use Above code to set the rtc if needed*****
 
   //debug check for RTC
@@ -148,14 +151,14 @@ void checkMoisture() {
 
   runEvery (1000){
     sensorValue = analogRead(sensorPin);
-    
+
     if (skipNext == LOW && sensorValue >= wetThreshold) {
-        skipNext = !skipNext;
-        Serial.println("Skipping next Watering STORED");
+      skipNext = !skipNext;
+      Serial.println("Skipping next Watering STORED");
     }
-        if (skipNext == HIGH && sensorValue <= dryThreshold) {
-        skipNext = !skipNext;
-        Serial.println("Next Watering Reinstated");
+    if (skipNext == HIGH && sensorValue <= dryThreshold) {
+      skipNext = !skipNext;
+      Serial.println("Next Watering Reinstated");
     }
   }
 
@@ -345,8 +348,8 @@ void debug() {
     sensorValue = analogRead(sensorPin);
     int sec = now.second();
 
-    Serial.print("Alarm Set for ");
-    if (now.hour() >= 13) {
+    Serial.print("Morning Alarm Set for ");
+    if (alarmMorningHour >= 13) {
       Serial.print(alarmMorningHour - 12, DEC);
     }
     else {
@@ -363,14 +366,35 @@ void debug() {
       Serial.print(" AM");
     }
     Serial.println();
+    Serial.print("Evening Alarm Set for ");
+    if (alarmEveHour >= 13) {
+      Serial.print(alarmEveHour - 12, DEC);
+    }
+    else {
+      Serial.print(alarmEveHour, DEC);
+    }
+    Serial.print(':');
+    Serial.print(alarmEveMinute, DEC);
+    Serial.print(':');
+    Serial.print("00");
+    if (alarmEveHour >= 13) {
+      Serial.print(" PM");
+    }
+    else {
+      Serial.print(" AM");
+    }
+    Serial.println();
     Serial.print("WaterOverride = ");
-    Serial.println(waterOverride);
+    Serial.println(waterOverride);  //if >=5 should flip bit WaterNow
     Serial.print("WaterNow = ");
     Serial.println(waterNow);
     Serial.print("runOnce = ");
     Serial.println(runOnce);
     Serial.print("Pump = ");
     Serial.println(state);
+    Serial.print("Current Pump Run Time = ");
+    Serial.print(liter / 1000);
+    Serial.println(" seconds");
     if (sensorValue == 0) {
       Serial.println ("Moisture Sensor NOT IN SOIL");
     }
@@ -391,5 +415,4 @@ void debug() {
   }
 }
 
-//===============END================
-
+//===============END=================
