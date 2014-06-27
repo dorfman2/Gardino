@@ -92,7 +92,7 @@ int waterOverride = 0;    // if button is held, the system will waterNow, then r
 int sensorValue;    //define moisture readout
 int blinkCountF = 0;    //counts # of time led has gone HIGH + LOW
 int blinkCountS = 0;    //counts # of time led has gone HIGH + LOW
-int wetThreshold = 720;
+int wetThreshold = 690;
 int dryThreshold = 400;
 unsigned long currentMillis = 0;    // stores the value of millis() in each iteration of loop()
 unsigned long led_A_Millis = 0;
