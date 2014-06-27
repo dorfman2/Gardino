@@ -180,10 +180,12 @@ void checkMoisture() {
 
     if (skipNext == LOW && sensorValue >= wetThreshold) {
       skipNext = !skipNext;
+      ledFast = HIGH;
       Serial.println("Skipping next Watering STORED");
     }
     if (skipNext == HIGH && sensorValue <= dryThreshold) {
       skipNext = !skipNext;
+      ledFast = HIGH;
       Serial.println("Next Watering Reinstated");
     }
   }
