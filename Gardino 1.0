@@ -3,13 +3,13 @@
  6/21/2014
  By Jeffrey Dorfman
  
-     The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil
+ The goal of this project is to maintain proper soil moisture for an outdoor plant. It does so by pumping water into the soil
  once a day, and relying on a moisture sensor to test if the soil is already wet (i.e. from rainfall). It will also add an extra
  afternoon watering (heat of the day) if the soil moisture falls below acceptable levels. The ability to water now, or skip 
  next watering, is available via push button on the side of the arduino enclosure.
-      As it currently stands, the project maintains two plants, but only has one moisture sensor. They are watered at the 
+ As it currently stands, the project maintains two plants, but only has one moisture sensor. They are watered at the 
  same time, and the single moisture sensor overrides the pump in event of rain.
-     Eventually, I would like this project to involve several potted plants. The ideal being is that they require little maintenance,
+ Eventually, I would like this project to involve several potted plants. The ideal being is that they require little maintenance,
  other than refilling the reservoir. I would also like to add the option to mist leaves, possibly in cases of extreme heat causing
  leaf wilt.
  
@@ -61,13 +61,13 @@ RTC_DS1307 rtc;    // Clock Module
 AF_DCMotor motor(2, MOTOR12_1KHZ);   // Motor
 const int led_A_Pin = 2;
 const int buttonPin = 10; // the pin number for the button
-const int led_A_Interval = 500;
-const int blinkDurationFast = 500; // number of millisecs for Led ON
-const int buttonInterval = 300; // number of millisecs between button readings
+const int buttonInterval = 500; // number of millisecs between button readings
+const int runNowLimit = 10;  //Time button must be held to override pump 2 = 1 second
 const int sensorPin = 15;    //Moisture Sensor
-const int blinkLimit = 8;    //Total number of Led Blinks
+const int blinkLimit = 5;    //Total number of Led Blinks
+const int blinkDurationFast = 100; // number of millisecs for Led ON
+const int blinkDurationSlow = 250; // number of millisecs for Led ON
 long liter = 300000L;    // Water Calibration - adjust this time value until water amount is correct - in Millis
-
 
 
 // ----- Define State Machine -----
@@ -82,16 +82,20 @@ byte waterNow = LOW;
 byte lastButtonState = LOW;
 byte skipNext = LOW;    //will skip next watering if HIGH
 byte led_A_State = LOW;           //   LOW = off
-byte runOnce = LOW;
+byte runOncePump = LOW;
+byte runFastLed = LOW;
+byte runSlowLed = LOW;
+byte ledRunning = LOW;
+byte buttonHeld = LOW;
 int buttonState;  
 int waterOverride = 0;    // if button is held, the system will waterNow, then reset skipnext
 int sensorValue;    //define moisture readout
-int blinkCount = 8;    //counts # of time led has gone HIGH + LOW
+int blinkCountF = 0;    //counts # of time led has gone HIGH + LOW
+int blinkCountS = 0;    //counts # of time led has gone HIGH + LOW
 int wetThreshold = 720;
 int dryThreshold = 400;
 unsigned long currentMillis = 0;    // stores the value of millis() in each iteration of loop()
-unsigned long previousLed_A_Millis = 0;
-unsigned long previousButtonMillis = 0; // time when button press last checked
+unsigned long led_A_Millis = 0;
 unsigned long pumpTimeMillis;
 
 
@@ -110,12 +114,12 @@ void setup() {
   if (Serial) {
     Serial.begin(57600);
     Serial.println("Gardino.ino Test");
-        Serial.println();
+    Serial.println();
     Serial.println("Debug Mode ACTIVE");
     Serial.println();
   }
-  
-    //Power for DS1307 and Initializes
+
+  //Power for DS1307 and Initializes
   pinMode (17, OUTPUT);    
   digitalWrite (17, HIGH);
   pinMode (16, OUTPUT);
@@ -129,7 +133,7 @@ void setup() {
   if (! rtc.isrunning()) { 
     Serial.println("RTC is NOT running!");
   }
-  
+
   //Defines motor speed
   motor.setSpeed(255);
   motor.run(RELEASE);
@@ -140,12 +144,14 @@ void setup() {
 
   //button
   pinMode(buttonPin, INPUT);
-  
-    //debug check for RTC
+
+  //debug check for RTC
   while (! rtc.isrunning()) { 
     Serial.println("RTC is NOT running!");
-    ledFast();
+    runFastLed = HIGH;
   }
+
+  runSlowLed = HIGH;
 
 }
 
@@ -159,6 +165,8 @@ void loop() {
   checkWaterAlarm();
   runPump();
   eStop();
+  ledSlow();
+  ledFast();
   debug();
 
 }
@@ -192,7 +200,7 @@ void checkWaterAlarm () {
 
       if (skipNext == HIGH) {
         Serial.println("Watering Has Been Skipped");
-        ledSlow();
+        runSlowLed = HIGH;
         skipNext = !skipNext;
       }
 
@@ -204,7 +212,7 @@ void checkWaterAlarm () {
 
       if (skipNext == HIGH) {
         Serial.println("Watering Has Been Skipped");
-        ledSlow();
+        runSlowLed = HIGH;
         skipNext = !skipNext;
       }
 
@@ -219,27 +227,31 @@ void checkWaterAlarm () {
 
 void readButton() {
 
-  runEvery (500){
+  runEvery (buttonInterval){
     int buttonState = digitalRead(buttonPin);
 
     if (buttonState == HIGH) {
 
       if (skipNext == HIGH) {
-        if (waterOverride >= 5) {
+        if (waterOverride >= runNowLimit) {
           waterNow = HIGH;
           skipNext = !skipNext;
-          Serial.println("Next Watering Reinstated");
+          buttonHeld = HIGH;
+          Serial.println("Pump Overridden - RUNNING NOW - Next Watering Reinstated");
         }
         Serial.println("Next Watering Already Stored");
-        ledFast();
+        runFastLed = HIGH;
         waterOverride++;
       }
 
       else {
         skipNext = !skipNext;
         Serial.println("Skipping next Watering STORED");
-        ledSlow();
+        runSlowLed = HIGH;
       }
+    }
+    else {
+      buttonHeld = LOW;
     }
   }
 }
@@ -274,37 +286,75 @@ void displayTime() {
 //============================================
 
 void ledFast() {
-  digitalWrite (led_A_Pin, HIGH);
-  delay(100);
-  digitalWrite (led_A_Pin, LOW);
-  delay(100);
-  digitalWrite (led_A_Pin, HIGH);
-  delay(100);
-  digitalWrite (led_A_Pin, LOW);
-  delay(100);
-  digitalWrite (led_A_Pin, HIGH);
-  delay(100);
-  digitalWrite (led_A_Pin, LOW);
-  delay(100);
-  digitalWrite (led_A_Pin, HIGH);
-  delay(100);
-  digitalWrite (led_A_Pin, LOW);
+
+  if (runFastLed == HIGH && ledRunning == LOW && blinkCountF == 0) {
+    led_A_Millis = (currentMillis + blinkDurationFast);
+    blinkCountF++;
+    ledRunning = !ledRunning;
+    runFastLed = !runFastLed;
+  }
+
+  if (blinkCountF >= 1) {
+    if (led_A_State == LOW) {
+      if (currentMillis >= led_A_Millis) {
+        led_A_Millis = (currentMillis + blinkDurationFast);
+        led_A_State = HIGH;
+      }
+    }
+
+    else {
+      if (currentMillis >= led_A_Millis) {
+        led_A_Millis = (currentMillis + blinkDurationFast);
+        led_A_State = LOW;
+        blinkCountF++;
+      }
+    }
+
+    if (blinkCountF >= blinkLimit) {
+      blinkCountF = 0;
+      ledRunning = !ledRunning;
+    }
+
+    digitalWrite (led_A_Pin, led_A_State);
+  }
+
 }
 
 //============================================
 
 void ledSlow() { 
-  digitalWrite (led_A_Pin, HIGH);
-  delay(250);
-  digitalWrite (led_A_Pin, LOW);
-  delay(250);
-  digitalWrite (led_A_Pin, HIGH);
-  delay(250);
-  digitalWrite (led_A_Pin, LOW);
-  delay(250);
-  digitalWrite (led_A_Pin, HIGH);
-  delay(250);
-  digitalWrite (led_A_Pin, LOW);
+ 
+  if (runSlowLed == HIGH && ledRunning == LOW && blinkCountS == 0) {
+    led_A_Millis = (currentMillis + blinkDurationSlow);
+    blinkCountS++;
+    ledRunning = !ledRunning;
+    runSlowLed = !runSlowLed;
+  }
+
+  if (blinkCountS >= 1) {
+    if (led_A_State == LOW) {
+      if (currentMillis >= led_A_Millis) {
+        led_A_Millis = (currentMillis + blinkDurationSlow);
+        led_A_State = HIGH;
+      }
+    }
+
+    else {
+      if (currentMillis >= led_A_Millis) {
+        led_A_Millis = (currentMillis + blinkDurationSlow);
+        led_A_State = LOW;
+        blinkCountS++;
+      }
+    }
+
+    if (blinkCountS >= blinkLimit) {
+      blinkCountS = 0;
+      ledRunning = !ledRunning;
+    }
+
+    digitalWrite (led_A_Pin, led_A_State);
+  }
+
 }
 
 //============================================
@@ -312,12 +362,12 @@ void ledSlow() {
 void runPump() {
 
   if(waterNow == HIGH) {
-    if (runOnce == LOW) {
+    if (runOncePump == LOW) {
       state = ON;
       Serial.println("Pump ON");
       Serial.println();
       pumpTimeMillis = (currentMillis + liter);
-      runOnce = !runOnce;
+      runOncePump = !runOncePump;
       waterOverride = 0;
       waterNow = !waterNow;
     }
@@ -328,10 +378,10 @@ void runPump() {
   }
 
   else {
-    if (runOnce == HIGH) {
+    if (runOncePump == HIGH) {
       Serial.println("Pump OFF");
       Serial.println();
-      runOnce = !runOnce;
+      runOncePump = !runOncePump;
     }
     state = OFF;
   }
@@ -358,12 +408,12 @@ void eStop() {
   runEvery(250){
     if (state == ON) {
       int buttonState = digitalRead(buttonPin);
-      if (buttonState == HIGH) {
+      if (buttonState == HIGH && buttonHeld == LOW) {
         pumpTimeMillis = currentMillis;
         motor.run(RELEASE);
         digitalWrite(led_A_Pin, LOW);
         state = OFF;
-        Serial.println("EMERGENCY STOP");
+        Serial.println("----------===== EMERGENCY STOP =====-----------");
         delay(500);
       }
     }
@@ -379,7 +429,8 @@ void debug() {
     DateTime now = rtc.now();
     sensorValue = analogRead(sensorPin);
     int sec = now.second();
-
+    Serial.println();
+    Serial.println();
     Serial.print("Morning Alarm Set for ");
     if (alarmMorningHour >= 13) {
       Serial.print(alarmMorningHour - 12, DEC);
@@ -420,8 +471,6 @@ void debug() {
     Serial.println(waterOverride);  //if >=5 should flip bit WaterNow
     Serial.print("WaterNow = ");
     Serial.println(waterNow);
-    Serial.print("runOnce = ");
-    Serial.println(runOnce);
     Serial.print("Pump = ");
     Serial.println(state);
     Serial.print("Current Pump Run Time = ");
@@ -443,7 +492,8 @@ void debug() {
     Serial.println(sensorValue);
     Serial.print("skipNext = ");
     Serial.println(skipNext);
-
+    Serial.println();
+    Serial.println();
   }
 }
 
