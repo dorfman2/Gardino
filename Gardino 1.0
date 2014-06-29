@@ -83,7 +83,7 @@ byte lastButtonState = LOW;
 byte skipNext = LOW;    //will skip next watering if HIGH
 byte led_A_State = LOW;           //   LOW = off
 byte runOncePump = LOW;
-byte runFastLed = LOW;
+byte runFastLed = HIGH;
 byte runSlowLed = LOW;
 byte ledRunning = LOW;
 byte buttonHeld = LOW;
@@ -150,9 +150,6 @@ void setup() {
     Serial.println("RTC is NOT running!");
     runFastLed = HIGH;
   }
-
-  runSlowLed = HIGH;
-
 }
 
 //============================================
